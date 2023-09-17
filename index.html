@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="http://d3js.org/d3.v3.min.js"></script>
+        <script src="http://d3js.org/topojson.v1.min.js"></script>
+        <style>
+            /* Add a container div to apply styles */
+            #chart-container {
+                position: flex;
+                margin-top: -650px; /* Adjust the top margin as needed */
+                margin-left: 1000px; /* Adjust the left margin as needed */
+            }
+
+            #country-chart-container{
+                position: flex;
+                margin-top: -600; /* Adjust the top margin as needed */
+                margin-left: 1000px; /* Adjust the left margin as needed */
+            }
+        </style>
+    </head>
+
+    <body>
+        <div>
+            <script>
+//----------------------------------------------------------------------Karta START
+//Kreiranje karte na temelju podataka iz worldTopo.json, pozivanje funkcije createCountryBarChart(countryId), funkcija priblizavanja karte
+//za detaljniji odabir drzava i getPopulationForCountry(countryId, seriesName, populationData) funkcija za dohvacanja broja stanovnika unutar odredene drzave
+                var mapWidth = 3000;
+                var mapHeight = 600;
+
+                var svgCountryBarChart = d3.select("#country-chart-container")
+                
+                var projection = d3.geo.mercator()
+                    .center([0, 10])
+                    .scale(140)
+                    .translate([mapWidth / 6, mapHeight / 1.4]);
+                
+                var path = d3.geo.path()
+                    .projection(projection);
+                
+                var svg = d3.select("body").append("svg")
+                    .attr("width", mapWidth-2000)
+                    .attr("height", mapHeight+50)
+                    .style("background", "lightblue")
+                    .call(d3.behavior.zoom().scaleExtent([0.3, 5])
+                        .on("zoom", onZoom))
+                        .append("g");
+
+                var legendData = [
+                    {label: "Predominantly male population", color: "#191970"},
+                    {label: "Predominantly female population", color: "#800020"}
+                ];
+
+                var legend = svg.append("g")
+                    .attr("class", "legend")
+                    .attr("transform", "translate(20,20)");
+
+                var legendSize = 18;
+                var legendSpacing = 4;
+
+                var legendItems = legend.selectAll(".legend-item")
+                    .data(legendData)
+                    .enter().append("g")
+                    .attr("class", "legend-item")
+                    .attr("transform", function(d, i) { return "translate(0," + i * (legendSize + legendSpacing) + ")"; });
+
+                legendItems.append("rect")
+                    .attr("width", legendSize)
+                    .attr("height", legendSize)
+                    .style("fill", function(d) { return d.color; });
+
+                legendItems.append("text")
+                    .attr("x", legendSize + legendSpacing)
+                    .attr("y", legendSize - legendSpacing)
+                    .text(function(d) { return d.label; })
+                    .attr("font-size", 18)
+                    .attr("alignment-baseline", "middle");
+
+                d3.select("body")
+                    .append("div")
+                    .attr("id", "name");
+                
+                d3.json("worldTopo.json", function(error, world){
+                    d3.json("single_year_population.json", function(error, populationData){
+                        var data = topojson.feature(world, world.objects.countries1);
+
+                        console.log(data);
+                        var states = svg.selectAll("path")
+                        .data(data.features)
+                        .enter()
+                        .append("path")
+                        .attr("class", "country")
+                        .attr("id", function(d) {return d.id; })
+                        .attr("d", path)
+                        .style("fill", function(d) {
+                            var malePopulation = getPopulationForCountry(d.id, "Population, male", populationData);
+                            var femalePopulation = getPopulationForCountry(d.id, "Population, female", populationData);
+
+                            if (malePopulation > femalePopulation) {
+                                return "#191970";
+                            } else {
+                                return "#800020";
+                            }
+                        })
+                        .style("stroke", "black")
+                        .style("stroke.width", 1)
+                        .style("stroke-opacity", 1)
+                        .on("mouseover", function(d){
+                            console.log(d.properties.name);
+                            d3.select("#name").text(d.properties.name)
+                                .style("font-size", "40px");
+                        })
+                        .on("click", function(d){
+                            var countryId = d.id;
+                            createCountryBarChart(countryId)
+                        })
+                    })
+                });
+//----------------------------------------------------------------------Karta END
+                //Funkcija za dohvacanje broja stanovnika (odredena drzava, muski/zenski stanovnici, podatci iz "single_year_population.json"-a)
+                function getPopulationForCountry(countryId, seriesName, populationData) {
+                    for (var i = 0; i < populationData.length; i++) {
+                        if (populationData[i]["Country Code"] === countryId && populationData[i]["Series Name"] === seriesName) {
+                            return populationData[i]["Population"];
+                        }
+                    }
+                    return 0;
+                }
+
+                //Funkcija za "zoomiranje" karte
+                function onZoom() {
+                    svg.attr( "transform", "translate (" + d3.event.translate + ") scale (" + d3.event.scale + ")" );
+                }
+            </script>
+        </div>
+
+        <div id="chart-container">
+            <script>
+//----------------------------------------------------------------------Populacija Svijeta graf START
+//Kreira BarChart na kojem prikazuje populaciju cijelog svijeta i omjer musko/zenske populacije
+
+                d3.json("single_year_population.json", function(error, data) {
+                    if (error) throw error;
+
+                    data = data.slice(-3);
+
+                    //console.log(data);
+
+                    var widthWorldPopulation = 600;
+                    var heightWorldPopulation = 400;
+                    var barPaddingWorld = 10;
+
+
+                    var svgBarChart = d3.select("#chart-container")
+                        .append("svg")
+                        .attr("width", widthWorldPopulation+150)
+                        .attr("height", heightWorldPopulation+200);
+
+                    svgBarChart.append("text")
+                        .attr("class", "title")
+                        .attr("transform", "translate("+(750/2)+",40)")
+                        .attr("text-anchor", "middle")
+                        .attr("font-family", "sans-serif")
+                        .attr("font-size", "20px")
+                        .attr("fill", "black")
+                        .text("World population distribution");
+
+                    var xScale = d3.scale.ordinal()
+                        .domain(data.map(function(d) { return d["Series Name"]; }))
+                        .rangeBands([0, widthWorldPopulation+50]);
+
+                    var yScale = d3.scale.linear()
+                        .domain([0, d3.max(data, function(d) { return d.Population*1.1; })])
+                        .range([heightWorldPopulation, 0]);
+
+                    var xAxis = d3.svg.axis()
+                        .scale(xScale)
+                        .orient("bottom");
+
+                    var yAxis = d3.svg.axis()
+                        .scale(yScale)
+                        .orient("left");
+
+                    svgBarChart.append("g")
+                        .attr("class", "x axis")
+                        .attr("transform", "translate(100," + (heightWorldPopulation+50) +")")
+                        .call(xAxis)
+                        .selectAll("text")
+                        .style("text-anchor", "end")
+                        .attr("x", "60")
+                        .attr("y", "25");
+
+                    svgBarChart.append("g")
+                        .attr("class", "y axis")
+                        .call(yAxis)
+                        .attr("transform", "translate(" + 100 + ",50)");
+
+                    svgBarChart.selectAll(".y.axis text")
+                        .attr("font-family", "sans-serif")
+                        .attr("font-size", "12px");
+
+                    svgBarChart.selectAll(".y.axis .domain")
+                        .attr("stroke", "black");
+
+                    svgBarChart.selectAll("rect")
+                        .data(data)
+                        .enter().append("rect")
+                        .attr("x", function(d, i) { return i * (barPaddingWorld + xScale.rangeBand())+100; })
+                        .attr("y", function(d) { return yScale(d.Population)+50; })
+                        .attr("width", xScale.rangeBand())
+                        .attr("height", function(d) { return heightWorldPopulation - yScale(d.Population); })
+                        .attr("fill", function(d){
+                            if(d["Series Name"] == "Population, male"){
+                                    return "#191970"
+                                }
+                                else if(d["Series Name"] == "Population, female"){
+                                    return "#800020"
+                                }
+                                else{
+                                    return "#00A36C"
+                                }
+                            })
+                        .on("mouseover", function(d){
+                            svgBarChart.append("text")
+                            .attr("class", "population_label")
+                            .attr("x", xScale(d["Series Name"]) + (100+xScale.rangeBand()) / 2)
+                            .attr("y", yScale(d.Population)+35)
+                            .attr("text-anchor", "top")
+                            .attr("font-family", "sans-serif")
+                            .attr("font-size", "20px")
+                            .attr("fill", "black")
+                            .text(d.Population);
+                        })
+                        .on("mouseout", function() {
+                            svgBarChart.selectAll(".population_label").remove();
+                        });
+                });
+//----------------------------------------------------------------------Populacija Svijeta graf END
+            </script>
+        </div>
+
+        <div id="country-chart-container">
+            <script>
+//----------------------------------------------------------------------Populacija pojedinih država graf START
+//Funkcija za kreiranje countryBarChart na kojem prikazuje populaciju pojedine drzave i omjer musko/zenske populacije
+//drzava za koju se kreira graf je odabrana na temelju koda drzave, CRO za hrv, usporeduje se kod drzave sa 
+//worldTopo.json i single_year_population.json (kodovi drzava unutar oba jsona, za svaku drzavu su isti; npr. Hrvatska ima kod dravze "CRO" unutar oba jsona)
+
+    function createCountryBarChart(countryId){
+
+        d3.json("single_year_population.json", function(error, data) {
+            if (error) throw error;
+                        
+            var countryPopulation = [];
+            var countryData = [];
+            var countryName = [];
+
+            d3.select("#country-chart-container svg").remove();
+                        
+                        
+            for(var i= 0; i<data.length;i++){
+                if(data[i]["Country Code"] === countryId){
+                    countryData.push(data[i]);
+                    countryPopulation.push(data[i]["Population"]);
+                                
+                }
+            }       
+
+                                
+            var widthCountryPopulation = 600;
+            var heightCountryPopulation = 400;
+            var barPaddingCountry = 10;
+
+            console.log(countryPopulation);
+            console.log(countryData);
+            countryName = countryData[0]["Country Name"];
+
+
+            var svgCountryBarChart = d3.select("#country-chart-container")
+                .append("svg")
+                .attr("width", widthCountryPopulation+150)
+                .attr("height", heightCountryPopulation+200);
+
+            svgCountryBarChart.append("text")
+                .attr("class", "title")
+                .attr("transform", "translate("+(750/2)+",40)")
+                .attr("text-anchor", "middle")
+                .attr("font-family", "sans-serif")
+                .attr("font-size", "20px")
+                .attr("fill", "black")
+                .text(countryName + " population distribution ");
+                                    
+                            
+            var xScale = d3.scale.ordinal()
+                .domain(countryData.map(function(countrySeries) { return countrySeries["Series Name"]}))
+                .rangeBands([0, widthCountryPopulation+50]);
+
+            var yScale = d3.scale.linear()
+                .domain([0, d3.max(countryPopulation, function(d, i) { return countryPopulation[i]*1.2; })])
+                .range([heightCountryPopulation, 0]);    
+
+            var xAxis = d3.svg.axis()
+                .scale(xScale)
+                .orient("bottom");
+
+            var yAxis = d3.svg.axis()
+                .scale(yScale)
+                .orient("left");
+
+            svgCountryBarChart.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(100," + (heightCountryPopulation+50) +")")
+                .call(xAxis)
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("x", "60")
+                .attr("y", "25");
+
+            svgCountryBarChart.append("g")
+                .attr("class", "y axis")
+                .call(yAxis)
+                .attr("transform", "translate(" + 100 + ",50)");
+
+            svgCountryBarChart.selectAll(".y.axis text")
+                .attr("font-family", "sans-serif")
+                .attr("font-size", "12px");
+
+            svgCountryBarChart.selectAll(".y.axis .domain")
+                .attr("stroke", "black");
+
+            svgCountryBarChart.selectAll("rect")
+                .data(countryData).enter()
+                .append("rect")
+                .attr("x", function(country, i) { return i * (barPaddingCountry + xScale.rangeBand())+100; })
+                .attr("y", function(country) { return heightCountryPopulation+50;})
+                .attr("width", xScale.rangeBand())
+                .attr("height", function(country) { return 0; })
+                .attr("fill", function(d, i){
+                    if(countryData[i]["Series Name"] === "Population, male"){
+                        return "#191970"
+                    }
+                    else if(countryData[i]["Series Name"] === "Population, female"){
+                        return "#800020"
+                    }
+                    else{
+                        return "#00A36C"
+                    }
+                })
+                .on("mouseover", function(d){
+                    svgCountryBarChart.append("text")
+                    .attr("class", "population_label")
+                    .attr("x", xScale(d["Series Name"]) + (100+xScale.rangeBand()) / 2)
+                    .attr("y", yScale(d["Population"])+35)
+                    .attr("text-anchor", "top")
+                    .attr("font-family", "sans-serif")
+                    .attr("font-size", "20px")
+                    .attr("fill", "black")
+                    .text(d["Population"]);
+                })
+                .on("mouseout", function() {
+                    svgCountryBarChart.select(".population_label").remove();
+                })
+                .transition()
+                .duration(1000)
+                .attr("y", function(country) { return yScale(country["Population"])+50; })
+                .attr("height", function(country) { return heightCountryPopulation - yScale(country["Population"]); });
+                });
+            }                      
+//----------------------------------------------------------------------Populacija pojedinih država graf END
+            </script>
+        </div>
+    </body>
+</html>
